@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEZ Crypto Wallet</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1e1e2f;
+            color: #ffffff;
+            text-align: center;
+            padding: 20px;
+        }
+        input, button {
+            padding: 12px;
+            margin: 8px;
+            border: none;
+            border-radius: 8px;
+            width: 90%;
+            font-size: 16px;
+        }
+        button {
+            background-color: #ff9800;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #e68900;
+        }
+        .crypto-list {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        .crypto-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 95%;
+            padding: 12px;
+            background: #2c2c3e;
+            border-radius: 10px;
+            margin: 6px 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .crypto-item img {
+            width: 30px;
+            height: 30px;
+            margin-right: 12px;
+        }
+        .buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .section-title {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .gainers, .losers {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #2c2c3e;
+            color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 400px;
+            text-align: center;
+            position: relative;
+        }
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 30px;
+            cursor: pointer;
+        }
+        .icon-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .icon-container img {
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+        }
+        .pie-chart-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px auto;
+            display: none; /* Initially hidden */
+        }
+        .positive {
+            color: #4caf50; /* Green for positive price change */
+            font-weight: bold;
+        }
+        .negative {
+            color: #f44336; /* Red for negative price change */
+            font-weight: bold;
+        }
+        .up-arrow {
+            color: #4caf50;
+        }
+        .down-arrow {
+            color: #f44336;
+        }
+        @media (max-width: 600px) {
+            h1, h2, h3 {
+                font-size: 18px;
+            }
+            input, button {
+                font-size: 14px;
+            }
+            .crypto-item {
+                font-size: 12px;
+            }
+        }
+        /* Add transition for fade effect */
+        .price {
+            transition: opacity 0.5s ease;
+        }
+        .faded {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>TEZ Crypto Wallet</h1>
+    <div id="register">
+        <h3>Register</h3>
+        <input type="text" id="regUsername" placeholder="Username">
+        <input type="password" id="regPassword" placeholder="Password">
+        <button onclick="register()">Register</button>
+    </div>
+    <div id="login" style="display:none;">
+        <h3>Login</h3>
+        <input type="text" id="loginUsername" placeholder="Username">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <button onclick="login()">Login</button>
+    </div>
+    <div id="dashboard" style="display:none;">
+        <h2>Main Balance: $<span id="mainBalance">2,800,000</span></h2>
+        <div class="buttons-container">
+            <button onclick="logout()">Logout</button>
+        </div>
+        <div class="section-title">Gainers</div>
+        <div class="gainers" id="gainersList"></div>
+
+        <div class="section-title">Losers</div>
+        <div class="losers" id="losersList"></div>
+
+        <!-- Icon to show Pie Chart -->
+        <div class="icon-container">
+            <img src="https://img.icons8.com/ios/452/pie-chart.png" alt="Pie Chart Icon" onclick="showPieChart()">
+        </div>
+
+        <!-- Pie Chart for Top 5 Holdings -->
+        <div class="pie-chart-container" id="pieChartContainer">
+            <canvas id="pieChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Modal for Crypto Details -->
+    <div id="cryptoModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">×</span>
+            <h4 id="modalTitle"></h4>
+            <p id="modalPrice"></p>
+            <p id="modalQuantity"></p>
+            <div class="chart-container">
+                <canvas id="priceChart"></canvas>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let priceChart; // Global chart variable
+        let pieChart; // Global pie chart variable
+        const mainBalance = 2800000; // User's main balance in USD
+
+        // Function to register
+        function register() {
+            localStorage.setItem("username", document.getElementById("regUsername").value);
+            localStorage.setItem("password", document.getElementById("regPassword").value);
+            alert("Registration Successful! Please login.");
+            document.getElementById("register").style.display = "none";
+            document.getElementById("login").style.display = "block";
+        }
+
+        // Function to login
+        function login() {
+            if (localStorage.getItem("username") === document.getElementById("loginUsername").value &&
+                localStorage.getItem("password") === document.getElementById("loginPassword").value) {
+                alert("Login Successful!");
+                document.getElementById("login").style.display = "none";
+                document.getElementById("dashboard").style.display = "block";
+                loadCryptoData();
+                setInterval(loadCryptoData, 3000); // Update data every 3 seconds
+            } else {
+                alert("Invalid credentials!");
+            }
+        }
+
+        // Function to logout
+        function logout() {
+            alert("Logging out...");
+            document.getElementById("dashboard").style.display = "none";
+            document.getElementById("login").style.display = "block";
+        }
+
+        // Function to load cryptocurrency data
+        async function loadCryptoData() {
+            const response = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false');
+            const data = await response.json();
+            const gainersList = document.getElementById("gainersList");
+            const losersList = document.getElementById("losersList");
+
+            gainersList.innerHTML = "";
+            losersList.innerHTML = "";
+
+            const gainers = [];
+            const losers = [];
+
+            let totalMarketCap = 0;
+            let coinData = [];
+
+            data.forEach(coin => {
+                const volume = coin.total_volume.toFixed(2);
+                const priceChange24h = coin.price_change_percentage_24h.toFixed(2);  // Price change percentage
+                const priceColor = priceChange24h >= 0 ? 'positive' : 'negative';
+
+                let volumeChange = '';
+                if (coin.total_volume > coin.market_cap) {
+                    volumeChange = '<span class="up-arrow">↑</span>';
+                } else {
+                    volumeChange = '<span class="down-arrow">↓</span>';
+                }
+
+                const quantity = (mainBalance / coin.current_price).toFixed(4);
+
+                let div = document.createElement("div");
+                div.className = "crypto-item";
+                div.innerHTML = `
+                    <img src="${coin.image}" alt="${coin.name}">
+                    <span>${coin.name} (${coin.symbol.toUpperCase()})</span>
+                    <span class="price ${priceColor}" id="price-${coin.id}">$${coin.current_price}</span>
+                    <span>Volume: $${volume} ${volumeChange}</span>
+                    <span class="${priceColor}">${priceChange24h >= 0 ? '+' : ''}${priceChange24h}%</span>
+                    <span>${quantity} ${coin.symbol.toUpperCase()}</span> <!-- Removed "Held:" -->
+                `;
+                
+                div.onclick = () => openModal(coin);
+
+                // Categorize into gainers or losers
+                if (coin.price_change_percentage_24h >= 0) {
+                    gainers.push(div);
+                } else {
+                    losers.push(div);
+                }
+
+                // Store coin data for pie chart
+                coinData.push({ name: coin.name, value: coin.market_cap });
+
+                totalMarketCap += coin.market_cap;
+            });
+
+            // Display the gainers and losers
+            gainers.forEach(item => gainersList.appendChild(item));
+            losers.forEach(item => losersList.appendChild(item));
+
+            // Show pie chart after loading data
+            showPieChart(coinData, totalMarketCap);
+        }
+
+        // Function to update the price chart
+        function updateChart(labels, prices) {
+            const ctx = document.getElementById("priceChart").getContext("2d");
+            if (priceChart) priceChart.destroy();
+            priceChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Price (USD)",
+                        data: prices,
+                        borderColor: "#ff9800",
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { beginAtZero: true }
+                    },
+                    plugins: {
+                        datalabels: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Function to open the modal for cryptocurrency details
+        async function openModal(coin) {
+            const quantity = (mainBalance / coin.current_price).toFixed(6);
+            
+            document.getElementById("modalTitle").innerText = `${coin.name} (${coin.symbol.toUpperCase()})`;
+            document.getElementById("modalPrice").innerText = `Price: $${coin.current_price}`;
+            document.getElementById("modalQuantity").innerText = `Quantity: ${quantity} ${coin.symbol.toUpperCase()}`;
+            document.getElementById("cryptoModal").style.display = "block";
+
+            const response = await fetch(`https://api.coingecko.com/api/v3/coins/${coin.id}/market_chart?vs_currency=usd&days=7&interval=daily`);
+            const historyData = await response.json();
+            
+            const prices = historyData.prices.map(entry => entry[1]);
+            const labels = historyData.prices.map(entry => new Date(entry[0]).toLocaleDateString());
+
+            updateChart(labels, prices);
+        }
+
+        // Function to show the Pie Chart of top holdings
+        function showPieChart(coinData, totalMarketCap) {
+            const pieChartContainer = document.getElementById("pieChartContainer");
+            pieChartContainer.style.display = "block"; // Show the chart container
+
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            if (pieChart) pieChart.destroy();
+
+            // Calculate percentage for each coin
+            const labels = coinData.map(coin => coin.name);
+            const values = coinData.map(coin => ((coin.value / totalMarketCap) * 100).toFixed(2)); // Percentage of total market cap
+
+            pieChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#ff9800', '#4caf50', '#f44336', '#2196f3', '#9c27b0']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    return `${tooltipItem.label}: ${tooltipItem.raw}%`; // Show percentage
+                                }
+                            }
+                        },
+                        datalabels: {
+                            formatter: (value, context) => {
+                                return `${value}%`; // Display percentage on the chart
+                            },
+                            color: '#ffffff',
+                            font: {
+                                weight: 'bold',
+                                size: 14
+                            }
+                        }
+                    },
+                    animation: {
+                        animateScale: true,
+                        animateRotate: true
+                    },
+                    rotation: Math.PI / 4, // Add rotation for 3D effect
+                }
+            });
+        }
+
+        // Function to close the modal
+        function closeModal() {
+            document.getElementById("cryptoModal").style.display = "none";
+        }
+    </script>
+</body>
+</html>
