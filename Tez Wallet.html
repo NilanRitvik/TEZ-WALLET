@@ -259,28 +259,19 @@
             let coinData = [];
 
             data.forEach(coin => {
-                const volume = coin.total_volume.toFixed(2);
                 const priceChange24h = coin.price_change_percentage_24h.toFixed(2);  // Price change percentage
                 const priceColor = priceChange24h >= 0 ? 'positive' : 'negative';
-
-                let volumeChange = '';
-                if (coin.total_volume > coin.market_cap) {
-                    volumeChange = '<span class="up-arrow">↑</span>';
-                } else {
-                    volumeChange = '<span class="down-arrow">↓</span>';
-                }
 
                 const quantity = (mainBalance / coin.current_price).toFixed(4);
 
                 let div = document.createElement("div");
                 div.className = "crypto-item";
-                div.innerHTML = `
+                div.innerHTML = ` 
                     <img src="${coin.image}" alt="${coin.name}">
                     <span>${coin.name} (${coin.symbol.toUpperCase()})</span>
                     <span class="price ${priceColor}" id="price-${coin.id}">$${coin.current_price}</span>
-                    <span>Volume: $${volume} ${volumeChange}</span>
                     <span class="${priceColor}">${priceChange24h >= 0 ? '+' : ''}${priceChange24h}%</span>
-                    <span>${quantity} ${coin.symbol.toUpperCase()}</span> <!-- Removed "Held:" -->
+                    <span>${quantity} ${coin.symbol.toUpperCase()}</span>
                 `;
                 
                 div.onclick = () => openModal(coin);
